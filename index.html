@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PackLens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+
+:root {
+  --bg:#f0f0f0;--surface:#ffffff;--surface2:#e8e8e8;--surface3:#d8d8d8;
+  --border:#bbb;--accent:#e05a00;--accent2:#c04d00;
+  --text:#111111;--text2:#444444;--text3:#777777;
+  --danger:#c0392b;--success:#1e8449;
+  --radius:14px;--radius-sm:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;min-height:100vh;}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.header-logo{display:flex;align-items:center;gap:8px;}
+.header-logo .dot{width:8px;height:8px;background:var(--accent);border-radius:50%;}
+.header-logo span{font-size:20px;font-weight:800;letter-spacing:-0.5px;}
+.header-logo span em{color:var(--accent);font-style:normal;}
+.nav-tabs{display:flex;gap:4px;}
+.nav-tab{padding:9px 16px;border-radius:20px;font-size:14px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:inherit;transition:all 0.2s;}
+.nav-tab.active{background:var(--accent);color:#fff;font-weight:700;}
+.page{display:none;padding:16px;padding-bottom:80px;}
+.page.active{display:block;}
+.section-title{font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin:24px 0 12px;}
+.section-title:first-child{margin-top:0;}
+.datetime-display{background:var(--accent);border:none;border-radius:var(--radius-sm);padding:14px 16px;font-size:15px;color:#fff;font-weight:700;margin-bottom:20px;}
+/* Batch type cards */
+.batch-type-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;}
+.batch-type-card{background:var(--surface);border:2.5px solid var(--border);border-radius:var(--radius);padding:20px 16px;text-align:center;cursor:pointer;transition:all 0.15s;}
+.batch-type-card.selected{border-color:var(--accent);background:rgba(224,90,0,0.06);}
+.batch-type-icon{font-size:32px;margin-bottom:8px;}
+.batch-type-label{font-size:16px;font-weight:800;color:var(--text);}
+.batch-type-sub{font-size:12px;color:var(--text3);margin-top:4px;}
+.batch-type-card.selected .batch-type-label{color:var(--accent);}
+/* Barcode area */
+.barcode-area{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:8px;}
+.barcode-area textarea{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:12px 14px;outline:none;font-family:"DM Sans",monospace;resize:vertical;transition:border-color 0.15s;line-height:1.6;}
+.barcode-area textarea:focus{border-color:var(--accent);}
+.barcode-actions{display:flex;gap:8px;margin-top:10px;}
+.btn-parse{flex:1;padding:13px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;border:none;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;}
+.btn-clear-parse{padding:13px 18px;background:var(--surface2);color:var(--text2);font-size:13px;font-weight:700;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;}
+/* Parse results */
+.parse-summary{background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;font-size:14px;font-weight:600;color:var(--text2);margin-bottom:10px;}
+.parse-count-total{color:var(--text);font-weight:800;}
+.parse-count-ok{color:var(--success);font-weight:800;}
+.parse-count-err{color:var(--danger);font-weight:800;}
+.unknown-header{font-size:12px;font-weight:800;color:var(--danger);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;padding:10px 12px;background:rgba(192,57,43,0.08);border:1.5px solid rgba(192,57,43,0.2);border-radius:var(--radius-sm);}
+.unknown-item{font-size:13px;font-family:monospace;color:var(--danger);padding:6px 12px;background:rgba(192,57,43,0.05);border-radius:6px;margin-bottom:4px;}
+.recognised-item{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:6px;}
+.recognised-item.discontinued{opacity:0.5;border-color:var(--danger);}
+.recognised-left{flex:1;}
+.recognised-name{font-size:13px;font-weight:700;color:var(--text);}
+.recognised-sku{font-size:11px;color:var(--text3);font-family:monospace;margin-top:3px;}
+.recognised-count{font-size:24px;font-weight:800;color:var(--accent);margin-left:12px;}
+.cat-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:6px;vertical-align:middle;}
+.cat-bed{background:rgba(224,90,0,0.1);color:var(--accent);}
+.cat-table{background:rgba(52,152,219,0.1);color:#2980b9;}
+.cat-chair{background:rgba(155,89,182,0.1);color:#8e44ad;}
+.cat-disc{background:rgba(192,57,43,0.1);color:var(--danger);}
+/* Shared */
+input[type="text"],input[type="number"],textarea,select{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:16px;padding:13px 14px;outline:none;font-family:inherit;transition:border-color 0.15s;-webkit-appearance:none;}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);}
+.field-group{margin-bottom:14px;}
+.btn-primary{width:100%;padding:17px;background:var(--accent);color:#fff;font-size:16px;font-weight:800;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;margin-top:8px;}
+.btn-primary:disabled{cursor:not-allowed;}
+.btn-secondary{padding:11px 20px;background:var(--surface2);color:var(--text2);font-size:13px;font-weight:700;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;}
+.filter-bar{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none;}
+.filter-bar::-webkit-scrollbar{display:none;}
+.filter-chip{padding:8px 16px;border-radius:16px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:inherit;}
+.filter-chip.active{border-color:var(--accent);color:var(--accent);background:rgba(224,90,0,0.08);}
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;}
+.stat-val{font-size:28px;font-weight:800;color:var(--accent);}
+.stat-label{font-size:12px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;}
+.session-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.session-dt{font-size:15px;font-weight:800;color:var(--text);}
+.sku-table{width:100%;border-collapse:collapse;}
+.sku-table th{font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;padding:6px 8px;text-align:left;border-bottom:1.5px solid var(--border);}
+.sku-table td{font-size:12px;color:var(--text);padding:8px 8px;border-bottom:1px solid var(--border);}
+.sku-table td:last-child{font-weight:800;color:var(--accent);text-align:right;}
+.total-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border);margin-top:4px;}
+.total-row span{font-size:12px;color:var(--text2);font-weight:700;}
+.total-row strong{font-size:15px;color:var(--accent);font-weight:800;}
+.auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px;text-align:center;background:var(--bg);}
+.auth-logo{font-size:44px;font-weight:800;letter-spacing:-1px;margin-bottom:10px;}
+.auth-logo em{color:var(--accent);font-style:normal;}
+.auth-sub{font-size:16px;color:var(--text2);margin-bottom:48px;line-height:1.7;font-weight:500;}
+.btn-google{display:flex;align-items:center;gap:10px;padding:14px 24px;background:white;color:#333;font-size:15px;font-weight:600;border:none;border-radius:var(--radius);cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+.empty-state{text-align:center;padding:48px 20px;color:var(--text3);}
+.empty-state .icon{font-size:40px;margin-bottom:12px;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:12px 20px;font-size:13px;font-weight:600;z-index:300;transition:transform 0.3s;white-space:nowrap;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.1);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.success{border-color:var(--success);color:var(--success);}
+.toast.error{border-color:var(--danger);color:var(--danger);}
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* Search */
+.search-section{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;}
+.search-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.search-label{font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
+.date-input-wrap{position:relative;}
+.date-input-wrap input[type="date"]{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:11px 14px;outline:none;font-family:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;}
+.date-input-wrap input[type="date"]:focus{border-color:var(--accent);}
+.date-input-wrap input[type="date"]::-webkit-calendar-picker-indicator{opacity:0;position:absolute;right:0;top:0;width:100%;height:100%;cursor:pointer;}
+.date-input-wrap .cal-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;color:var(--text3);}
+.shape-select{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:11px 14px;outline:none;font-family:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23777' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;}
+.shape-select:focus{border-color:var(--accent);}
+.search-actions{display:flex;gap:8px;}
+.btn-search{flex:1;padding:12px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;border:none;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;}
+.btn-clear-search{padding:12px 16px;background:var(--surface2);color:var(--text2);font-size:13px;font-weight:700;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;}
+.search-summary{background:rgba(224,90,0,0.08);border:1.5px solid rgba(224,90,0,0.25);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;}
+.search-summary-text{font-size:14px;font-weight:700;color:var(--accent);}
+.search-summary-sub{font-size:12px;color:var(--text2);margin-top:3px;}
+.search-result-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;}
+.search-result-dt{font-size:12px;color:var(--text3);margin-bottom:6px;}
+.search-result-row{display:flex;align-items:center;justify-content:space-between;}
+.search-result-info{font-size:14px;font-weight:700;color:var(--text);}
+.search-result-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.search-result-pieces{font-size:22px;font-weight:800;color:var(--accent);}
+
+</style>
+</head>
+<body>
+<!-- AUTH -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-logo">Pack<em>Lens</em></div>
+  <div class="auth-sub">Packing & Dispatch Tracker<br>Honey Touch Warehousing</div>
+  <button class="btn-google" onclick="signIn()">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Sign in with Google
+  </button>
+</div>
+
+<!-- ACCESS DENIED -->
+<div id="accessDenied" style="display:none" class="auth-screen">
+  <div style="font-size:48px;margin-bottom:16px;">&#128274;</div>
+  <div class="auth-logo" style="font-size:28px;">Access Denied</div>
+  <div class="auth-sub" style="max-width:300px;">Your account does not have access to PackLens.<br><br>Ask your manager to share the PackLens folder.</div>
+  <div style="font-size:13px;color:var(--text3);margin-bottom:24px;word-break:break-all;" id="deniedEmail"></div>
+  <button class="btn-secondary" onclick="signOut()">Sign in with a different account</button>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <div class="header">
+    <div class="header-logo"><div class="dot"></div><span>Pack<em>Lens</em></span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage('entry',this)">Entry</button>
+      <button class="nav-tab" onclick="showPage('log',this)">Log</button>
+      <button class="nav-tab" onclick="showPage('manager',this)">Manager</button>
+    </div>
+  </div>
+
+  <!-- ENTRY PAGE -->
+  <div id="page-entry" class="page active">
+    <div class="datetime-display" id="datetimeDisplay">--</div>
+
+    <div class="section-title">Batch Type</div>
+    <div class="batch-type-row">
+      <div class="batch-type-card" id="batchTypePacked" onclick="selectBatchType('packed',this)">
+        <div class="batch-type-icon">&#128230;</div>
+        <div class="batch-type-label">Packed</div>
+        <div class="batch-type-sub">Ready for dispatch</div>
+      </div>
+      <div class="batch-type-card" id="batchTypeDispatched" onclick="selectBatchType('dispatched',this)">
+        <div class="batch-type-icon">&#128666;</div>
+        <div class="batch-type-label">Dispatched</div>
+        <div class="batch-type-sub">Out for delivery</div>
+      </div>
+    </div>
+
+    <div class="section-title">Paste Barcodes</div>
+    <div class="barcode-area">
+      <textarea id="barcodeInput" rows="8" placeholder="Paste Master SKUs here, one per line&#10;e.g.&#10;L2-B-BL-EL-5&#10;ME-B-BL-HB-3&#10;(4)-D-B-WH-DU"></textarea>
+      <div class="barcode-actions">
+        <button class="btn-parse" onclick="parseBarcodes()">&#128269; Parse Barcodes</button>
+        <button class="btn-clear-parse" onclick="clearEntry()">Clear</button>
+      </div>
+    </div>
+
+    <div id="parseResults" style="display:none">
+      <div class="parse-summary" id="parseSummary"></div>
+      <div id="unknownBlock" style="display:none">
+        <div class="unknown-header">&#10060; Unrecognised Barcodes — resolve before submitting</div>
+        <div id="unknownList"></div>
+      </div>
+      <div id="recognisedBlock" style="display:none">
+        <div class="section-title" style="margin-top:16px;">&#10003; Recognised</div>
+        <div id="recognisedList"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Notes <span style="font-size:11px;font-weight:500;color:var(--text3);">(optional)</span></div>
+    <div class="field-group">
+      <textarea id="notesInput" rows="2" placeholder="Any remarks..."></textarea>
+    </div>
+
+    <button class="btn-primary" id="submitBtn" onclick="submitBatch()" disabled style="opacity:0.4">Submit Batch</button>
+  </div>
+
+  <!-- LOG PAGE -->
+  <div id="page-log" class="page">
+    <div class="filter-bar">
+      <div class="filter-chip active" onclick="filterLog('all',this)">All</div>
+      <div class="filter-chip" onclick="filterLog('packed',this)">Packed</div>
+      <div class="filter-chip" onclick="filterLog('dispatched',this)">Dispatched</div>
+    </div>
+    <div id="logList"></div>
+  </div>
+
+  <!-- MANAGER PAGE -->
+  <div id="page-manager" class="page">
+    <div class="search-section">
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:14px;">&#128269; Search Entries</div>
+      <div class="search-row">
+        <div>
+          <div class="search-label">From Date</div>
+          <div class="date-input-wrap">
+            <input type="date" id="searchFromDate">
+            <span class="cal-icon">&#128197;</span>
+          </div>
+        </div>
+        <div>
+          <div class="search-label">To Date</div>
+          <div class="date-input-wrap">
+            <input type="date" id="searchToDate">
+            <span class="cal-icon">&#128197;</span>
+          </div>
+        </div>
+      </div>
+      <div class="search-row">
+        <div>
+          <div class="search-label">Status</div>
+          <select class="shape-select" id="searchStatus">
+            <option value="">All</option>
+            <option value="packed">Packed</option>
+            <option value="dispatched">Dispatched</option>
+          </select>
+        </div>
+        <div>
+          <div class="search-label">SKU</div>
+          <input type="text" id="searchSKU" placeholder="e.g. L2-B-BL-EL-5" style="font-size:13px;padding:10px 12px;">
+        </div>
+      </div>
+      <div class="search-actions">
+        <button class="btn-search" onclick="runSearch()">Search</button>
+        <button class="btn-clear-search" onclick="clearSearch()">Clear</button>
+      </div>
+    </div>
+    <div class="search-summary" id="searchSummary" style="display:none">
+      <div class="search-summary-text" id="searchSummaryText"></div>
+      <div class="search-summary-sub" id="searchSummarySub"></div>
+    </div>
+    <div id="searchResults" style="display:none;margin-bottom:16px;"></div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="statPacked">0</div><div class="stat-label">Packed</div></div>
+      <div class="stat-card"><div class="stat-val" id="statDispatched">0</div><div class="stat-label">Dispatched</div></div>
+      <div class="stat-card"><div class="stat-val" id="statToday">0</div><div class="stat-label">Today</div></div>
+      <div class="stat-card"><div class="stat-val" id="statBatches">0</div><div class="stat-label">Batches</div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button class="btn-secondary" style="flex:1" onclick="exportCSV()">Export CSV</button>
+      <button class="btn-secondary" style="flex:1" onclick="loadBatches()">Refresh</button>
+    </div>
+    <div class="filter-bar">
+      <div class="filter-chip active" onclick="filterManager('all',this)">All Time</div>
+      <div class="filter-chip" onclick="filterManager('week',this)">This Week</div>
+      <div class="filter-chip" onclick="filterManager('month',this)">This Month</div>
+    </div>
+    <div id="managerList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── MASTER SKU PARSER ─────────────────────────────────────────────────────
+
+const MATTRESS_MAP = {
+  'ME': 'Frame Only',
+  'L1': 'Single Layer',
+  'L2': 'Double Layer',
+  'L3': 'Ortho Tri-Layer',
+  'SB': 'Frame Only',
+};
+
+const FRAME_COLOR_MAP = {
+  'B':  'Black',
+  'W':  'White',
+  'IV': 'Ivory',
+  'G':  'Golden',
+  'BL': 'Black',
+  'GR': 'Other',
+};
+
+const MATTRESS_COLOR_MAP = {
+  'BL': 'Black',
+  'W':  'White',
+  'BR': 'Brown',
+  'GR': 'Green',
+  'VV': 'Velvet',
+  'BS': 'Blue',
+  'IV': 'Ivory',
+  'AO': 'American Oak',
+  'FW': 'Frosty White',
+};
+
+const SHAPE_MAP = {
+  'EL':  'Element',
+  'HB':  'Headboard',
+  'RF':  'Round',
+  'GD':  'Round',
+  'RX':  'Square',
+  'NX':  'Square',
+  'OS':  'Oslo',
+  'NS':  'Nesto',
+  'LG':  'Linea Grey',
+  'CS':  'Golden',
+  'MB':  'Metal Base',
+  'TR':  'Trolley',
+  'RE':  'Round',
+  'BS':  'Base',
+  'AT':  'Round',
+  'HW1': 'Wooden Half Patti',
+  'HW2': 'Wooden Half Patti',
+  'HW3': 'Wooden Half Patti',
+  'FW1': 'Wooden Full Patti',
+  'FW2': 'Wooden Full Patti',
+  'FW3': 'Wooden Full Patti',
+  'M1':  'Wooden Half Patti',
+  'M2':  'Wooden Half Patti',
+  'M3':  'Wooden Half Patti',
+};
+
+const WOOD_VARIANT_MAP = {
+  'HW1': 'American Oak', 'HW2': 'Stone Grain', 'HW3': 'Wenge Black',
+  'FW1': 'American Oak', 'FW2': 'Stone Grain', 'FW3': 'Wenge Black',
+  'M1':  'American Oak', 'M2':  'Stone Grain', 'M3':  'Wenge Black',
+};
+
+const SIZE_MAP = {
+  '2': 'Single 2.5ft',
+  '3': 'Single 3ft',
+  '4': 'Double 4ft',
+  '5': 'Queen 5ft',
+  '6': 'King 6ft',
+};
+
+const BRAND_MAP = {
+  // Shape+Size+Mattress → Brand (best effort)
+  'RF-Single 2.5ft': 'Atlas/Nexon', 'RF-Single 3ft': 'Atlas',
+  'EL-Single 3ft': 'Nova', 'EL-Double 4ft': 'Nova', 'EL-Queen 5ft': 'Nova', 'EL-King 6ft': 'Nova',
+  'HB-Single 3ft': 'Jasper', 'HB-Double 4ft': 'Samos', 'HB-Queen 5ft': 'Samos', 'HB-King 6ft': 'Samos',
+  'Oslo-Queen 5ft': 'Oslo', 'Oslo-Double 4ft': 'Oslo',
+  'Nesto-Queen 5ft': 'Nesto', 'Nesto-Double 4ft': 'Nesto',
+  'Golden-Queen 5ft': 'Boston', 'Golden-Double 4ft': 'Boston', 'Golden-King 6ft': 'Boston',
+  'Base-Queen 5ft': 'Base', 'Base-Double 4ft': 'Base',
+  'Trolley-Single 3ft': 'Xyra',
+  'Metal Base-Single 3ft': 'Avon', 'Metal Base-Single 2.5ft': 'Avon',
+};
+
+function parseMasterSKU(raw) {
+  var sku = raw.trim();
+  if (!sku) return null;
+
+  // ── Special: Eva Chair ─────────────────────────────
+  if (sku === 'SB-SC-BL-B' || sku.startsWith('SB-')) {
+    return {
+      sku: sku,
+      brand: 'Eva',
+      category: 'chair',
+      shape: 'Eva',
+      size: 'Chair',
+      frameColour: 'Black',
+      mattressType: 'Frame Only',
+      mattressColour: null,
+      woodVariant: null,
+      displayName: 'Eva Chair • Black',
+    };
+  }
+
+  // ── Special: Duke/Lizon Tables ─────────────────────
+  // Format: (4)-D-[FC]-[MC]-[LZ/DU]
+  var tableMatch = sku.match(/^\(4\)-D-([A-Z]+)-([A-Z]+)-([A-Z]+)$/);
+  if (tableMatch) {
+    var fc = tableMatch[1];
+    var mc = tableMatch[2];
+    var brand = tableMatch[3] === 'LZ' ? 'Lizon' : 'Duke';
+    var frameCol = fc === 'W' ? 'White' : fc === 'B' ? 'Black' : fc;
+    var tableTop = mc === 'WH' ? 'White' : mc === 'GR' ? 'Grey' : mc === 'NH' ? 'Natural Ash' : mc === 'AO' ? 'American Oak' : mc;
+    return {
+      sku: sku,
+      brand: brand,
+      category: 'table',
+      shape: brand,
+      size: 'Table',
+      frameColour: frameCol,
+      mattressType: 'Frame Only',
+      mattressColour: tableTop,
+      woodVariant: null,
+      displayName: brand + ' • ' + frameCol + ' Frame • ' + tableTop + ' Top',
+    };
+  }
+
+  // ── Spacio (discontinued — flag it) ────────────────
+  if (sku.startsWith('HT-SPC')) {
+    return {
+      sku: sku,
+      brand: 'Spacio',
+      category: 'discontinued',
+      shape: 'Rack',
+      size: 'Rack',
+      frameColour: 'Black',
+      mattressType: 'Frame Only',
+      mattressColour: null,
+      woodVariant: null,
+      displayName: 'Spacio (Discontinued)',
+    };
+  }
+
+  // ── Standard bed format: [MATTRESS]-[FC]-[MC]-[SHAPE]-[SIZE] ──
+  var parts = sku.split('-');
+  if (parts.length < 4) return null;
+
+  var mattressCode  = parts[0];                          // L1/L2/L3/ME
+  var frameCode     = parts[1];                          // B/W/IV/G/BL
+  var mattressColor = parts[2];                          // BL/W/BR/GR/VV/BS
+  // Shape can be multi-part (HW1, FW2, M3) — everything between index 3 and last
+  var sizeCode      = parts[parts.length - 1];           // 2/3/4/5/6
+  var shapeCode     = parts.slice(3, parts.length - 1).join('-') || parts[3];
+
+  // Fallback: if only 4 parts, shape is index 3 and size is also index 3 (non-bed?)
+  if (parts.length === 4) {
+    shapeCode = parts[2];
+    sizeCode  = parts[3];
+    mattressColor = null;
+  }
+
+  var mattressType  = MATTRESS_MAP[mattressCode];
+  var frameColour   = FRAME_COLOR_MAP[frameCode] || frameCode;
+  var shape         = SHAPE_MAP[shapeCode]        || shapeCode;
+  var size          = SIZE_MAP[sizeCode]           || sizeCode;
+  var woodVariant   = WOOD_VARIANT_MAP[shapeCode]  || null;
+  var mattressCol   = mattressColor ? (MATTRESS_COLOR_MAP[mattressColor] || mattressColor) : null;
+
+  if (!mattressType || !size || size === sizeCode) return null;
+
+  // Build display name
+  var parts2 = [shape];
+  if (woodVariant) parts2.push(woodVariant);
+  parts2.push(size);
+  parts2.push(frameColour + ' frame');
+  if (mattressType !== 'Frame Only') {
+    parts2.push(mattressType);
+    if (mattressCol && mattressCol !== 'Black') parts2.push(mattressCol + ' mattress');
+  }
+
+  return {
+    sku: sku,
+    brand: null,
+    category: 'bed',
+    shape: shape,
+    size: size,
+    frameColour: frameColour,
+    mattressType: mattressType,
+    mattressColour: mattressType === 'Frame Only' ? null : mattressCol,
+    woodVariant: woodVariant,
+    displayName: parts2.join(' • '),
+  };
+}
+
+// Parse a block of barcodes (newline or comma separated)
+// Returns { recognised: [...], unknown: [...] }
+function parseBarcodeBlock(text) {
+  var lines = text.split(/[\n,]+/).map(function(l){ return l.trim(); }).filter(Boolean);
+  var recognised = [];
+  var unknown = [];
+  var seen = {};
+
+  lines.forEach(function(sku) {
+    var parsed = parseMasterSKU(sku);
+    if (parsed) {
+      if (seen[sku]) {
+        // duplicate — add to count
+        for (var i = 0; i < recognised.length; i++) {
+          if (recognised[i].sku === sku) { recognised[i].count++; break; }
+        }
+      } else {
+        seen[sku] = true;
+        parsed.count = 1;
+        recognised.push(parsed);
+      }
+    } else {
+      unknown.push(sku);
+    }
+  });
+
+  return { recognised: recognised, unknown: unknown, total: lines.length };
+}
+
+// ── CONFIG ───────────────────────────────────────
+const CLIENT_ID  = '801481705797-g3fpo65r67n8437eti5lknpa6gqcvf3e.apps.googleusercontent.com';
+const FOLDER_ID  = '1iCsWVIZ1gWwYK8yRAFQJnB26dUzkUZMh';
+const DB_FILE    = 'packlens_db.json';
+const OWNER_EMAIL= 'adityaramnani91581@gmail.com';
+const SCOPES     = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email';
+
+// ── STATE ────────────────────────────────────────
+var accessToken   = null;
+var dbFileId      = null;
+var batches       = [];
+var selectedType  = null;  // 'packed' or 'dispatched'
+var parsedResult  = null;  // { recognised, unknown, total }
+var isSubmitting  = false;
+var logFilter     = 'all';
+var managerFilter = 'all';
+
+// ── AUTH ─────────────────────────────────────────
+function signIn() {
+  var client = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID, scope: SCOPES,
+    callback: async function(resp) {
+      if (!resp.access_token) return;
+      accessToken = resp.access_token;
+      var ok = await checkFolderAccess();
+      if (!ok) {
+        var email = await fetchUserProfile();
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('deniedEmail').textContent = email || '';
+        document.getElementById('accessDenied').style.display = 'flex';
+        return;
+      }
+      document.getElementById('authScreen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      startClock();
+      await loadBatches();
+    }
+  });
+  client.requestAccessToken();
+}
+
+async function checkFolderAccess() {
+  try {
+    var q = encodeURIComponent("'" + FOLDER_ID + "' in parents");
+    var res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&pageSize=1&fields=files(id)',
+      { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!res.ok) return false;
+    return Array.isArray((await res.json()).files);
+  } catch(e) { return false; }
+}
+
+async function fetchUserProfile() {
+  try {
+    var res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',
+      { headers: { Authorization: 'Bearer ' + accessToken } });
+    return (await res.json()).email || '';
+  } catch(e) { return ''; }
+}
+
+function signOut() {
+  accessToken = null;
+  document.getElementById('accessDenied').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+// ── CLOCK ─────────────────────────────────────────
+function startClock() {
+  var el = document.getElementById('datetimeDisplay');
+  function update() {
+    var n = new Date();
+    el.textContent = n.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})
+      + '  \u2022  ' + n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  update(); setInterval(update, 1000);
+}
+
+// ── NAV ───────────────────────────────────────────
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+  if (name === 'log')     renderLog();
+  if (name === 'manager') renderManager();
+}
+
+// ── BATCH TYPE ────────────────────────────────────
+function selectBatchType(type, el) {
+  selectedType = type;
+  document.querySelectorAll('.batch-type-card').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+  updateSubmitButton();
+}
+
+// ── PARSE ─────────────────────────────────────────
+function parseBarcodes() {
+  var text = document.getElementById('barcodeInput').value.trim();
+  if (!text) { showToast('Paste some barcodes first', 'error'); return; }
+  parsedResult = parseBarcodeBlock(text);
+  renderParseResults();
+  updateSubmitButton();
+}
+
+function renderParseResults() {
+  if (!parsedResult) return;
+  var r = parsedResult;
+  document.getElementById('parseResults').style.display = 'block';
+
+  // Summary bar
+  var summaryEl = document.getElementById('parseSummary');
+  summaryEl.innerHTML =
+    '<span class="parse-count-total">' + r.total + ' barcodes</span>'
+    + ' \u2022 <span class="parse-count-ok">' + r.recognised.reduce(function(s,x){ return s+x.count; },0) + ' recognised</span>'
+    + (r.unknown.length > 0 ? ' \u2022 <span class="parse-count-err">' + r.unknown.length + ' unknown</span>' : '');
+
+  // Unknown block
+  var unknownBlock = document.getElementById('unknownBlock');
+  if (r.unknown.length > 0) {
+    unknownBlock.style.display = 'block';
+    document.getElementById('unknownList').innerHTML = r.unknown.map(function(u) {
+      return '<div class="unknown-item">' + u + '</div>';
+    }).join('');
+  } else {
+    unknownBlock.style.display = 'none';
+  }
+
+  // Recognised block
+  var recBlock = document.getElementById('recognisedBlock');
+  if (r.recognised.length > 0) {
+    recBlock.style.display = 'block';
+    document.getElementById('recognisedList').innerHTML = r.recognised.map(function(item) {
+      var catBadge = item.category === 'chair' ? '<span class="cat-badge cat-chair">Chair</span>'
+        : item.category === 'table' ? '<span class="cat-badge cat-table">Table</span>'
+        : item.category === 'discontinued' ? '<span class="cat-badge cat-disc">Discontinued</span>'
+        : '<span class="cat-badge cat-bed">Bed</span>';
+      return '<div class="recognised-item' + (item.category === 'discontinued' ? ' discontinued' : '') + '">'
+        + '<div class="recognised-left">'
+        + '<div class="recognised-name">' + item.displayName + ' ' + catBadge + '</div>'
+        + '<div class="recognised-sku">' + item.sku + '</div>'
+        + '</div>'
+        + '<div class="recognised-count">' + item.count + '</div>'
+        + '</div>';
+    }).join('');
+  } else {
+    recBlock.style.display = 'none';
+  }
+}
+
+function clearEntry() {
+  document.getElementById('barcodeInput').value = '';
+  document.getElementById('parseResults').style.display = 'none';
+  document.getElementById('notesInput').value = '';
+  parsedResult = null;
+  selectedType = null;
+  document.querySelectorAll('.batch-type-card').forEach(function(c){ c.classList.remove('selected'); });
+  updateSubmitButton();
+}
+
+// ── SUBMIT ────────────────────────────────────────
+function updateSubmitButton() {
+  var btn = document.getElementById('submitBtn');
+  var hasType  = !!selectedType;
+  var hasParsed = parsedResult && parsedResult.recognised.length > 0 && parsedResult.unknown.length === 0;
+  var canSubmit = hasType && hasParsed && !isSubmitting;
+  btn.disabled = !canSubmit;
+  btn.style.opacity = canSubmit ? '1' : '0.4';
+  if (parsedResult && parsedResult.unknown.length > 0 && parsedResult.recognised.length > 0) {
+    btn.title = 'Resolve unknown barcodes before submitting';
+  }
+}
+
+async function submitBatch() {
+  if (isSubmitting) return;
+  if (!selectedType)    { showToast('Select Packed or Dispatched', 'error'); return; }
+  if (!parsedResult || parsedResult.recognised.length === 0) { showToast('No valid barcodes parsed', 'error'); return; }
+  if (parsedResult.unknown.length > 0) { showToast('Resolve unknown barcodes first', 'error'); return; }
+
+  isSubmitting = true; updateSubmitButton();
+  var btn = document.getElementById('submitBtn');
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    var bid = 'PL' + Date.now();
+    var entry = {
+      id: bid,
+      timestamp: new Date().toISOString(),
+      type: selectedType,
+      items: parsedResult.recognised.map(function(r) {
+        return {
+          sku:          r.sku,
+          displayName:  r.displayName,
+          category:     r.category,
+          shape:        r.shape,
+          size:         r.size,
+          frameColour:  r.frameColour,
+          mattressType: r.mattressType,
+          woodVariant:  r.woodVariant || null,
+          count:        r.count,
+        };
+      }),
+      totalPieces: parsedResult.recognised.reduce(function(s,r){ return s+r.count; }, 0),
+      notes: document.getElementById('notesInput').value.trim(),
+      status: 'active',
+      audit: [],
+    };
+
+    batches.unshift(entry);
+    var saved = await saveDBWithRetry();
+    if (!saved) {
+      batches.shift();
+      showSaveFailedBanner();
+      isSubmitting = false; updateSubmitButton();
+      btn.textContent = 'Submit Batch';
+      return;
+    }
+    showToast('Batch saved \u2713', 'success');
+    clearEntry();
+  } catch(e) {
+    console.error('submitBatch error:', e);
+    showToast('Error: ' + (e.message || 'Unknown'), 'error');
+  }
+  isSubmitting = false; updateSubmitButton();
+  btn.textContent = 'Submit Batch';
+}
+
+// ── DRIVE ─────────────────────────────────────────
+async function loadDB() {
+  try {
+    var q = encodeURIComponent("name='" + DB_FILE + "' and '" + FOLDER_ID + "' in parents and trashed=false");
+    var res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)',
+      { headers: { Authorization: 'Bearer ' + accessToken } });
+    var data = await res.json();
+    if (data.files && data.files.length > 0) {
+      dbFileId = data.files[0].id;
+      var content = await fetch('https://www.googleapis.com/drive/v3/files/' + dbFileId + '?alt=media',
+        { headers: { Authorization: 'Bearer ' + accessToken } });
+      batches = (await content.json()).batches || [];
+    } else { batches = []; dbFileId = null; }
+  } catch(e) { batches = []; dbFileId = null; }
+}
+
+async function saveDB() {
+  var blob = new Blob([JSON.stringify({ batches: batches }, null, 2)], { type: 'application/json' });
+  if (dbFileId) {
+    await fetch('https://www.googleapis.com/upload/drive/v3/files/' + dbFileId + '?uploadType=media',
+      { method: 'PATCH', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: blob });
+  } else {
+    var form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: DB_FILE, parents: [FOLDER_ID] })], { type: 'application/json' }));
+    form.append('file', blob);
+    var res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken }, body: form });
+    var saved = await res.json();
+    if (!saved.id) throw new Error('Drive save failed');
+    dbFileId = saved.id;
+  }
+}
+
+async function saveDBWithRetry() {
+  try { await saveDB(); return true; }
+  catch(e) {
+    await new Promise(function(r){ setTimeout(r, 2000); });
+    try { await saveDB(); return true; }
+    catch(e2) { console.error('Save failed:', e2); return false; }
+  }
+}
+
+async function loadBatches() { await loadDB(); renderLog(); renderManager(); }
+
+// ── RENDER LOG ────────────────────────────────────
+function renderLog() {
+  var list = document.getElementById('logList');
+  var filtered = logFilter === 'all' ? batches : batches.filter(function(b){ return b.type === logFilter; });
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">\uD83D\uDCCB</div><p>No batches yet</p></div>'; return;
+  }
+  list.innerHTML = filtered.map(function(b){ return batchCardHTML(b); }).join('');
+}
+
+function filterLog(f, el) {
+  logFilter = f;
+  document.querySelectorAll('#page-log .filter-chip').forEach(function(c){ c.classList.remove('active'); });
+  el.classList.add('active'); renderLog();
+}
+
+// ── RENDER MANAGER ────────────────────────────────
+function renderManager() {
+  var active = batches.filter(function(b){ return b.status !== 'deleted'; });
+  var packed     = active.filter(function(b){ return b.type === 'packed'; });
+  var dispatched = active.filter(function(b){ return b.type === 'dispatched'; });
+  var today      = active.filter(function(b){ return b.timestamp && b.timestamp.startsWith(new Date().toISOString().slice(0,10)); });
+  var totalPacked     = packed.reduce(function(s,b){ return s+b.totalPieces; }, 0);
+  var totalDispatched = dispatched.reduce(function(s,b){ return s+b.totalPieces; }, 0);
+
+  document.getElementById('statPacked').textContent     = totalPacked;
+  document.getElementById('statDispatched').textContent = totalDispatched;
+  document.getElementById('statToday').textContent      = today.reduce(function(s,b){ return s+b.totalPieces; }, 0);
+  document.getElementById('statBatches').textContent    = active.length;
+
+  var list = document.getElementById('managerList');
+  var filtered = active;
+  var now = new Date();
+  if (managerFilter === 'week')  { var wa = new Date(now-7*24*60*60*1000).toISOString(); filtered = filtered.filter(function(b){ return b.timestamp > wa; }); }
+  if (managerFilter === 'month') { var ma = new Date(now.getFullYear(), now.getMonth(), 1).toISOString(); filtered = filtered.filter(function(b){ return b.timestamp > ma; }); }
+
+  if (filtered.length === 0) { list.innerHTML = '<div class="empty-state"><div class="icon">\uD83D\uDCCA</div><p>No batches in this range</p></div>'; return; }
+
+  // Group by date
+  var byDate = {};
+  filtered.forEach(function(b) {
+    var dk = b.timestamp ? b.timestamp.slice(0,10) : 'unknown';
+    if (!byDate[dk]) byDate[dk] = [];
+    byDate[dk].push(b);
+  });
+
+  var out = '';
+  Object.keys(byDate).sort(function(a,b){ return b.localeCompare(a); }).forEach(function(dk) {
+    var group = byDate[dk];
+    var dayPieces = group.reduce(function(s,b){ return s+b.totalPieces; }, 0);
+    var todayKey  = new Date().toISOString().slice(0,10);
+    var label = dk === todayKey ? 'Today'
+      : new Date(dk+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+
+    // Aggregate SKUs across batches
+    var aggMap = {};
+    group.forEach(function(b) {
+      (b.items||[]).forEach(function(item) {
+        var key = item.sku + '|' + b.type;
+        if (!aggMap[key]) aggMap[key] = { sku: item.sku, name: item.displayName, type: b.type, count: 0 };
+        aggMap[key].count += item.count;
+      });
+    });
+
+    var aggRows = Object.values(aggMap).map(function(a) {
+      var typeBadge = '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;background:'
+        + (a.type === 'dispatched' ? 'rgba(30,132,73,0.12);color:#1e8449' : 'rgba(224,90,0,0.12);color:var(--accent)')
+        + '">' + (a.type === 'dispatched' ? 'Dispatched' : 'Packed') + '</span>';
+      return '<tr><td>' + a.sku + '</td><td>' + a.name + '</td><td>' + typeBadge + '</td><td>' + a.count + '</td></tr>';
+    }).join('');
+
+    out += '<div style="margin-bottom:20px;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+      + '<div><div style="font-size:14px;font-weight:800;color:var(--text);">' + label + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + group.length + ' batch' + (group.length>1?'es':'') + '</div></div>'
+      + '<div style="font-size:20px;font-weight:800;color:var(--accent);">' + dayPieces + ' <span style="font-size:11px;font-weight:600;color:var(--text3);">pcs</span></div>'
+      + '</div>'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px;">'
+      + '<table class="sku-table"><thead><tr><th>SKU</th><th>Product</th><th>Status</th><th>Pcs</th></tr></thead><tbody>' + aggRows + '</tbody></table>'
+      + '</div></div>';
+  });
+  list.innerHTML = out;
+}
+
+function filterManager(f, el) {
+  managerFilter = f;
+  document.querySelectorAll('#page-manager .filter-chip').forEach(function(c){ c.classList.remove('active'); });
+  el.classList.add('active'); renderManager();
+}
+
+// ── BATCH CARD HTML ───────────────────────────────
+function batchCardHTML(b) {
+  var dt = b.timestamp ? new Date(b.timestamp).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '--';
+  var typeLabel = b.type === 'dispatched' ? 'Dispatched' : 'Packed';
+  var typeBg    = b.type === 'dispatched' ? 'rgba(30,132,73,0.1)' : 'rgba(224,90,0,0.1)';
+  var typeColor = b.type === 'dispatched' ? '#1e8449' : 'var(--accent)';
+  var badge = '<span style="padding:5px 10px;border-radius:10px;font-size:12px;font-weight:700;background:' + typeBg + ';color:' + typeColor + '">' + typeLabel + '</span>';
+
+  var rows = (b.items||[]).map(function(item) {
+    return '<tr><td>' + item.sku + '</td><td>' + item.displayName + '</td><td>' + item.count + '</td></tr>';
+  }).join('');
+
+  return '<div class="session-card" id="card_' + b.id + '">'
+    + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">'
+    + '<div><div class="session-dt">' + dt + '</div>'
+    + '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + b.id + '</div></div>'
+    + badge + '</div>'
+    + '<table class="sku-table"><thead><tr><th>SKU</th><th>Product</th><th>Pcs</th></tr></thead><tbody>' + rows + '</tbody></table>'
+    + '<div class="total-row"><span>Total Pieces</span><strong>' + b.totalPieces + '</strong></div>'
+    + (b.notes ? '<div style="font-size:12px;color:var(--text2);margin-top:8px;">\uD83D\uDCDD ' + b.notes + '</div>' : '')
+    + '</div>';
+}
+
+// ── SEARCH ────────────────────────────────────────
+function runSearch() {
+  var fromDate = document.getElementById('searchFromDate').value;
+  var toDate   = document.getElementById('searchToDate').value;
+  var status   = document.getElementById('searchStatus').value;
+  var sku      = document.getElementById('searchSKU').value.trim().toUpperCase();
+  if (!fromDate && !toDate && !status && !sku) { showToast('Set at least one filter', 'error'); return; }
+
+  var results = [];
+  batches.forEach(function(b) {
+    if (b.status === 'deleted') return;
+    var dk = b.timestamp ? b.timestamp.slice(0,10) : '';
+    if (fromDate && dk < fromDate) return;
+    if (toDate   && dk > toDate)   return;
+    if (status   && b.type !== status) return;
+    (b.items||[]).forEach(function(item) {
+      if (sku && item.sku.toUpperCase().indexOf(sku) === -1) return;
+      results.push({ timestamp: b.timestamp, batchId: b.id, type: b.type, sku: item.sku, name: item.displayName, count: item.count });
+    });
+  });
+
+  var summary = document.getElementById('searchSummary');
+  var resultsDiv = document.getElementById('searchResults');
+  var totalPieces = results.reduce(function(s,r){ return s+r.count; }, 0);
+
+  summary.style.display = 'block';
+  summary.classList.add('show');
+  if (results.length === 0) {
+    document.getElementById('searchSummaryText').textContent = 'No entries found';
+    document.getElementById('searchSummarySub').textContent = 'Try adjusting your filters';
+    resultsDiv.style.display = 'none';
+    return;
+  }
+
+  var filters = [];
+  if (fromDate || toDate) filters.push((fromDate||'...')+' to '+(toDate||'today'));
+  if (status) filters.push(status);
+  if (sku) filters.push(sku);
+  document.getElementById('searchSummaryText').textContent = results.length + ' result' + (results.length>1?'s':'') + ' \u2022 ' + totalPieces + ' pieces';
+  document.getElementById('searchSummarySub').textContent = 'Filters: ' + (filters.join(' | ')||'None');
+
+  resultsDiv.style.display = 'block';
+  resultsDiv.innerHTML = results.map(function(r) {
+    var dt = r.timestamp ? new Date(r.timestamp).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '--';
+    var typeColor = r.type === 'dispatched' ? '#1e8449' : 'var(--accent)';
+    return '<div class="search-result-card">'
+      + '<div class="search-result-dt">' + dt + ' \u2022 <span style="color:' + typeColor + ';font-weight:700;">' + r.type + '</span></div>'
+      + '<div class="search-result-row"><div>'
+      + '<div class="search-result-info">' + r.sku + '</div>'
+      + '<div class="search-result-sub">' + r.name + '</div>'
+      + '</div><div class="search-result-pieces">' + r.count + '</div></div></div>';
+  }).join('');
+}
+
+function clearSearch() {
+  document.getElementById('searchFromDate').value = '';
+  document.getElementById('searchToDate').value = '';
+  document.getElementById('searchStatus').value = '';
+  document.getElementById('searchSKU').value = '';
+  document.getElementById('searchSummary').style.display = 'none';
+  document.getElementById('searchResults').style.display = 'none';
+}
+
+// ── EXPORT CSV ────────────────────────────────────
+function exportCSV() {
+  var rows = [['Batch ID','Timestamp','Type','SKU','Product','Shape','Size','Frame Colour','Mattress Type','Pieces','Notes']];
+  batches.forEach(function(b) {
+    (b.items||[]).forEach(function(item) {
+      rows.push([b.id, b.timestamp, b.type, item.sku, item.displayName, item.shape, item.size, item.frameColour, item.mattressType, item.count, b.notes||'']);
+    });
+  });
+  var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'packlens_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
+}
+
+// ── UTILS ─────────────────────────────────────────
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + (type||'');
+  setTimeout(function(){ t.classList.remove('show'); }, 2800);
+}
+
+function showSaveFailedBanner() {
+  var existing = document.getElementById('saveFailedBanner');
+  if (existing) return;
+  var banner = document.createElement('div');
+  banner.id = 'saveFailedBanner';
+  banner.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#fff;border:2px solid var(--danger);border-radius:var(--radius-sm);padding:12px 20px;font-size:13px;font-weight:700;color:var(--danger);z-index:500;box-shadow:0 4px 16px rgba(0,0,0,0.15);text-align:center;max-width:340px;width:90%;';
+  banner.innerHTML = '\u26A0\uFE0F Save failed \u2014 check your connection<br><span style="font-size:11px;font-weight:500;color:var(--text2);">Your entry is still here. Try submitting again.</span>'
+    + '<button onclick="this.parentNode.remove()" style="display:block;margin:8px auto 0;padding:6px 16px;background:var(--danger);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">OK</button>';
+  document.body.appendChild(banner);
+}
+
+window.addEventListener('beforeunload', function(e) {
+  if (parsedResult && parsedResult.recognised.length > 0) {
+    e.preventDefault(); e.returnValue = 'You have an unparsed batch. Are you sure?';
+    return e.returnValue;
+  }
+});
+
+</script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+</body>
+</html>
