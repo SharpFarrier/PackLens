@@ -91,6 +91,26 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .toast.error{border-color:var(--danger);color:var(--danger);}
 .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.inventory-stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+.inv-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center;}
+.inv-stat-val{font-size:22px;font-weight:800;color:var(--accent);}
+.inv-stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-top:2px;}
+.inv-table-wrap{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.inv-table{width:100%;border-collapse:collapse;}
+.inv-table th{font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;padding:10px 10px;text-align:left;border-bottom:1.5px solid var(--border);background:var(--surface2);}
+.inv-table th:not(:first-child){text-align:right;}
+.inv-table td{font-size:12px;color:var(--text);padding:10px 10px;border-bottom:1px solid var(--border);}
+.inv-table td:not(:first-child){text-align:right;font-weight:700;}
+.inv-table tr:last-child td{border-bottom:none;}
+.inv-table td.in-stock-pos{color:var(--success);}
+.inv-table td.in-stock-zero{color:var(--text3);}
+.inv-table td.in-stock-neg{color:var(--danger);font-weight:800;}
+.inv-table .sku-cell{font-family:monospace;font-size:11px;color:var(--text3);}
+.inv-table .product-cell{font-size:13px;font-weight:700;color:var(--text);}
+.upload-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;}
+.upload-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.upload-card-dt{font-size:14px;font-weight:800;color:var(--text);}
+.upload-card-file{font-size:12px;color:var(--text3);margin-top:2px;}
 .search-section{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;}
 .search-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
 .search-label{font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
@@ -135,8 +155,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
     <div class="header-logo"><div class="dot"></div><span>Pack<em>Lens</em></span></div>
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="showPage('entry',this)">Entry</button>
-      <button class="nav-tab" onclick="showPage('log',this)">Log</button>
-      <button class="nav-tab" onclick="showPage('manager',this)">Manager</button>
+      <button class="nav-tab" onclick="showPage('log',this)">Inventory</button>
+      <button class="nav-tab" onclick="showPage('manager',this)">Uploads</button>
     </div>
   </div>
 
@@ -161,73 +181,29 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
     <button class="btn-primary" id="submitBtn" onclick="submitBatch()" disabled style="opacity:0.4;margin-top:16px;">Submit</button>
   </div>
 
-  <!-- LOG PAGE -->
+  <!-- LOG PAGE = INVENTORY -->
   <div id="page-log" class="page">
-    <div style="font-size:13px;color:var(--text3);margin-bottom:16px;">All CSV uploads — newest first</div>
-    <div id="logList"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-size:13px;color:var(--text3);">Stock position by SKU</div>
+      <div style="display:flex;gap:8px;">
+        <button class="filter-chip active" id="invFilterAll" onclick="filterInventory('all',this)" style="font-size:12px;padding:6px 12px;">All</button>
+        <button class="filter-chip" id="invFilterStock" onclick="filterInventory('instock',this)" style="font-size:12px;padding:6px 12px;">In Stock</button>
+        <button class="filter-chip" id="invFilterDisp" onclick="filterInventory('dispatched',this)" style="font-size:12px;padding:6px 12px;">Dispatched</button>
+      </div>
+    </div>
+    <div id="inventoryStats" class="inventory-stats-row"></div>
+    <div id="inventoryTable"></div>
   </div>
 
-  <!-- MANAGER PAGE -->
+  <!-- MANAGER PAGE = UPLOADS -->
   <div id="page-manager" class="page">
-    <div class="search-section">
-      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:14px;">&#128269; Search Pieces</div>
-      <div class="search-row">
-        <div>
-          <div class="search-label">From Date</div>
-          <div class="date-input-wrap">
-            <input type="date" id="searchFromDate">
-            <span class="cal-icon">&#128197;</span>
-          </div>
-        </div>
-        <div>
-          <div class="search-label">To Date</div>
-          <div class="date-input-wrap">
-            <input type="date" id="searchToDate">
-            <span class="cal-icon">&#128197;</span>
-          </div>
-        </div>
-      </div>
-      <div class="search-row">
-        <div>
-          <div class="search-label">Status</div>
-          <select class="shape-select" id="searchStatus">
-            <option value="">All</option>
-            <option value="packed">Packed</option>
-            <option value="dispatched">Dispatched</option>
-          </select>
-        </div>
-        <div>
-          <div class="search-label">SKU / Piece ID</div>
-          <input type="text" id="searchSKU" placeholder="e.g. L2-B-BL-EL-5" style="font-size:13px;padding:10px 12px;">
-        </div>
-      </div>
-      <div class="search-actions">
-        <button class="btn-search" onclick="runSearch()">Search</button>
-        <button class="btn-clear-search" onclick="clearSearch()">Clear</button>
-      </div>
-    </div>
-    <div id="searchSummary" style="display:none;background:rgba(224,90,0,0.08);border:1.5px solid rgba(224,90,0,0.25);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
-      <div style="font-size:14px;font-weight:700;color:var(--accent);" id="searchSummaryText"></div>
-      <div style="font-size:12px;color:var(--text2);margin-top:3px;" id="searchSummarySub"></div>
-    </div>
-    <div id="searchResults" style="display:none;margin-bottom:16px;"></div>
-
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-val" id="statPacked">0</div><div class="stat-label">Packed</div></div>
-      <div class="stat-card"><div class="stat-val" id="statDispatched">0</div><div class="stat-label">Dispatched</div></div>
-      <div class="stat-card"><div class="stat-val" id="statToday">0</div><div class="stat-label">Updated Today</div></div>
-      <div class="stat-card"><div class="stat-val" id="statTotal">0</div><div class="stat-label">Total Pieces</div></div>
-    </div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:4px;">CSV upload history</div>
+    <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:16px;" id="lastUpdatedLabel"></div>
     <div style="display:flex;gap:8px;margin-bottom:16px;">
       <button class="btn-secondary" style="flex:1" onclick="exportCSV()">Export CSV</button>
       <button class="btn-secondary" style="flex:1" onclick="loadDB_drive().then(function(){ renderLog(); renderManager(); })">Refresh</button>
     </div>
-    <div class="filter-bar">
-      <div class="filter-chip active" onclick="filterManager('all',this)">All Time</div>
-      <div class="filter-chip" onclick="filterManager('week',this)">This Week</div>
-      <div class="filter-chip" onclick="filterManager('month',this)">This Month</div>
-    </div>
-    <div id="managerList"></div>
+    <div id="uploadList"></div>
   </div>
 </div>
 
