@@ -858,104 +858,113 @@ async function saveDBWithRetry() {
 
 // ── RENDER LOG (Upload history) ────────────────────
 function renderLog() {
-  var list = document.getElementById('logList');
-  var uploads = db.uploads || [];
-  var filtered = logFilter === 'all' ? uploads : uploads.filter(function(u){
-    // Filter by whether upload contained packed or dispatched
-    return true; // for now show all, filter by type would need per-upload type tracking
+  var pieces = db.pieces || {};
+  var allPieces = Object.values(pieces);
+
+  // Aggregate by master_sku
+  var skuMap = {};
+  allPieces.forEach(function(p) {
+    var msku = p.master_sku;
+    if (!skuMap[msku]) skuMap[msku] = {
+      master_sku: msku,
+      displayName: p.parsed ? p.parsed.displayName : msku,
+      packed: 0, dispatched: 0
+    };
+    if (p.status === 'packed')          skuMap[msku].packed++;
+    else if (p.status === 'dispatched') skuMap[msku].dispatched++;
   });
 
+  var rows = Object.values(skuMap);
+  rows.forEach(function(r){ r.inStock = r.packed - r.dispatched; });
+
+  // Apply filter
+  var filtered = rows;
+  if (window._inventoryFilter === 'instock')    filtered = rows.filter(function(r){ return r.inStock > 0; });
+  if (window._inventoryFilter === 'dispatched') filtered = rows.filter(function(r){ return r.dispatched > 0; });
+  filtered.sort(function(a,b){ return b.inStock - a.inStock; });
+
+  // Stats
+  var totalPacked     = rows.reduce(function(s,r){ return s+r.packed; }, 0);
+  var totalDispatched = rows.reduce(function(s,r){ return s+r.dispatched; }, 0);
+  var totalInStock    = rows.reduce(function(s,r){ return s+Math.max(0,r.inStock); }, 0);
+
+  var statsEl = document.getElementById('inventoryStats');
+  if (statsEl) statsEl.innerHTML =
+    '<div class="inv-stat"><div class="inv-stat-val">' + totalPacked + '</div><div class="inv-stat-label">Packed</div></div>'
+    + '<div class="inv-stat"><div class="inv-stat-val" style="color:var(--success);">' + totalInStock + '</div><div class="inv-stat-label">In Stock</div></div>'
+    + '<div class="inv-stat"><div class="inv-stat-val" style="color:#2980b9;">' + totalDispatched + '</div><div class="inv-stat-label">Dispatched</div></div>';
+
+  var tableEl = document.getElementById('inventoryTable');
+  if (!tableEl) return;
   if (filtered.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="icon">\uD83D\uDCCB</div><p>No uploads yet</p></div>'; return;
+    tableEl.innerHTML = '<div class="empty-state"><div class="icon">??</div><p>No data yet</p></div>'; return;
   }
-  list.innerHTML = filtered.map(function(u) {
+  var tableRows = filtered.map(function(r) {
+    var stockClass = r.inStock > 0 ? 'in-stock-pos' : r.inStock < 0 ? 'in-stock-neg' : 'in-stock-zero';
+    return '<tr>'
+      + '<td><div class="product-cell">' + r.displayName + '</div><div class="sku-cell">' + r.master_sku + '</div></td>'
+      + '<td>' + r.packed + '</td>'
+      + '<td>' + r.dispatched + '</td>'
+      + '<td class="' + stockClass + '">' + r.inStock + '</td>'
+      + '</tr>';
+  }).join('');
+  tableEl.innerHTML = '<div class="inv-table-wrap"><table class="inv-table"><thead><tr>'
+    + '<th>Product</th><th>Packed</th><th>Dispatched</th><th>In Stock</th>'
+    + '</tr></thead><tbody>' + tableRows + '</tbody></table></div>';
+}
+
+function filterInventory(f, el) {
+  window._inventoryFilter = f;
+  document.querySelectorAll('#page-log .filter-chip').forEach(function(c){ c.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  renderLog();
+}
+
+function filterLog(f, el) { filterInventory(f, el); }
+
+// ── RENDER MANAGER ────────────────────────────────
+function renderManager() {
+  var uploads = db.uploads || [];
+  var lastEl = document.getElementById('lastUpdatedLabel');
+  if (lastEl) {
+    if (uploads.length > 0) {
+      var last = new Date(uploads[0].timestamp);
+      lastEl.textContent = 'Last updated: ' + last.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + ' • ' + uploads[0].filename;
+    } else {
+      lastEl.textContent = 'No uploads yet';
+    }
+  }
+  var list = document.getElementById('uploadList');
+  if (!list) return;
+  if (uploads.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">??</div><p>No uploads yet</p></div>'; return;
+  }
+  list.innerHTML = uploads.map(function(u) {
     var dt = new Date(u.timestamp).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    return '<div class="session-card">'
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">'
-      + '<div><div class="session-dt">' + dt + '</div>'
-      + '<div style="font-size:12px;color:var(--text3);margin-top:3px;">' + u.filename + '</div>'
-      + '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + u.id + '</div></div>'
-      + '<div style="text-align:right;font-size:12px;font-weight:700;">'
-      + '<div style="color:var(--success);">+' + u.new_count + ' new</div>'
-      + '<div style="color:var(--accent);">\u21c4 ' + u.changed_count + ' changed</div>'
+    return '<div class="upload-card">'
+      + '<div class="upload-card-header"><div>'
+      + '<div class="upload-card-dt">' + dt + '</div>'
+      + '<div class="upload-card-file">' + u.filename + ' • ' + u.total_rows + ' rows</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + u.id + '</div>'
+      + '</div><div style="text-align:right;">'
+      + (u.new_count > 0 ? '<div style="font-size:12px;font-weight:700;color:var(--success);">+' + u.new_count + ' new</div>' : '')
+      + (u.changed_count > 0 ? '<div style="font-size:12px;font-weight:700;color:var(--accent);">⇄ ' + u.changed_count + ' changed</div>' : '')
       + '</div></div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
       + '<span class="diff-pill diff-new">+' + u.new_count + ' new</span>'
-      + '<span class="diff-pill diff-changed">\u21c4 ' + u.changed_count + ' updated</span>'
-      + '<span class="diff-pill diff-unchanged">\u2014 ' + u.unchanged_count + ' unchanged</span>'
-      + (u.unknown_count > 0 ? '<span class="diff-pill diff-unknown">\u26a0 ' + u.unknown_count + ' unknown</span>' : '')
+      + '<span class="diff-pill diff-changed">⇄ ' + u.changed_count + ' updated</span>'
+      + '<span class="diff-pill diff-unchanged">— ' + u.unchanged_count + ' unchanged</span>'
+      + (u.unknown_count > 0 ? '<span class="diff-pill diff-unknown">⚠ ' + u.unknown_count + ' unknown</span>' : '')
       + '</div>'
-      + (u.notes ? '<div style="font-size:12px;color:var(--text2);margin-top:8px;">\uD83D\uDCDD ' + u.notes + '</div>' : '')
+      + (u.notes ? '<div style="font-size:12px;color:var(--text2);margin-top:8px;">?? ' + u.notes + '</div>' : '')
       + '</div>';
   }).join('');
 }
 
-function filterLog(f, el) {
-  logFilter = f;
-  document.querySelectorAll('#page-log .filter-chip').forEach(function(c){ c.classList.remove('active'); });
-  el.classList.add('active'); renderLog();
-}
-
-// ── RENDER MANAGER ────────────────────────────────
-function renderManager() {
-  var pieces = db.pieces || {};
-  var allPieces = Object.values(pieces);
-
-  var totalPacked     = allPieces.filter(function(p){ return p.status === 'packed'; }).length;
-  var totalDispatched = allPieces.filter(function(p){ return p.status === 'dispatched'; }).length;
-  var today = new Date().toISOString().slice(0,10);
-  var todayPieces = allPieces.filter(function(p){ return p.last_updated && p.last_updated.slice(0,10) === today; }).length;
-
-  document.getElementById('statPacked').textContent     = totalPacked;
-  document.getElementById('statDispatched').textContent = totalDispatched;
-  document.getElementById('statToday').textContent      = todayPieces;
-  document.getElementById('statTotal').textContent      = allPieces.length;
-
-  var list = document.getElementById('managerList');
-  var filtered = allPieces;
-  var now = new Date();
-  if (managerFilter === 'week') {
-    var wa = new Date(now - 7*24*60*60*1000).toISOString();
-    filtered = filtered.filter(function(p){ return p.last_updated > wa; });
-  }
-  if (managerFilter === 'month') {
-    var ma = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    filtered = filtered.filter(function(p){ return p.last_updated > ma; });
-  }
-
-  if (filtered.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="icon">\uD83D\uDCCA</div><p>No pieces yet</p></div>'; return;
-  }
-
-  // Group by master_sku + status
-  var groups = {};
-  filtered.forEach(function(p) {
-    var key = p.master_sku + '|' + p.status;
-    if (!groups[key]) groups[key] = { master_sku: p.master_sku, displayName: p.parsed ? p.parsed.displayName : p.master_sku, status: p.status, count: 0 };
-    groups[key].count++;
-  });
-
-  var sorted = Object.values(groups).sort(function(a,b){
-    if (a.status !== b.status) return a.status === 'dispatched' ? -1 : 1;
-    return b.count - a.count;
-  });
-
-  var rows = sorted.map(function(g) {
-    var statusBadge = g.status === 'dispatched'
-      ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(30,132,73,0.1);color:#1e8449;">Dispatched</span>'
-      : '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(224,90,0,0.1);color:var(--accent);">Packed</span>';
-    return '<tr><td>' + g.master_sku + '</td><td>' + g.displayName + '</td><td>' + statusBadge + '</td><td>' + g.count + '</td></tr>';
-  }).join('');
-
-  list.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">'
-    + '<table class="sku-table"><thead><tr><th>Master SKU</th><th>Product</th><th>Status</th><th>Pcs</th></tr></thead>'
-    + '<tbody>' + rows + '</tbody></table></div>';
-}
-
 function filterManager(f, el) {
-  managerFilter = f;
   document.querySelectorAll('#page-manager .filter-chip').forEach(function(c){ c.classList.remove('active'); });
-  el.classList.add('active'); renderManager();
+  if (el) el.classList.add('active');
+  renderManager();
 }
 
 // ── SEARCH ────────────────────────────────────────
