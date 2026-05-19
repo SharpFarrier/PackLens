@@ -870,8 +870,13 @@ function renderLog() {
       displayName: p.parsed ? p.parsed.displayName : msku,
       packed: 0, dispatched: 0
     };
-    if (p.status === 'packed')          skuMap[msku].packed++;
-    else if (p.status === 'dispatched') skuMap[msku].dispatched++;
+    // Dispatched pieces were always packed first — count toward both
+    if (p.status === 'packed') {
+      skuMap[msku].packed++;
+    } else if (p.status === 'dispatched') {
+      skuMap[msku].packed++;
+      skuMap[msku].dispatched++;
+    }
   });
 
   var rows = Object.values(skuMap);
