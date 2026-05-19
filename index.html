@@ -646,8 +646,6 @@ function handleFileUpload(event) {
   if (!file) return;
   document.getElementById('uploadFileName').textContent = file.name;
   document.getElementById('uploadFileName').style.display = 'block';
-  document.getElementById('parseBtn').disabled = false;
-
   var reader = new FileReader();
   reader.onload = function(e) {
     window._csvText = e.target.result;
